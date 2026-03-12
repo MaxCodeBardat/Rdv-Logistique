@@ -165,10 +165,9 @@ export default function FormReservation() {
     alert("Formulaire envoyé (voir console)");
   };
 
-  const remaining = Math.max(
-    0,
-    Number(totalPallets) - suppliers.reduce((sum, s) => sum + s.pallets, 0)
-  );
+  const used = suppliers.reduce((sum, s) => sum + s.pallets, 0);
+
+  const remaining = Number(totalPallets) - used;
 
   return (
     <form
