@@ -70,7 +70,7 @@ export default function FormReservation() {
     suppliers.forEach(supplier => {
       newErrors[supplier.id] = {
         name: supplier.name.trim() === "",
-        pallets: !isStep1 && supplier.pallets <= 0, // palettes non vérifiées en step1
+        pallets: !isStep1 && suppliers.length > 1 && supplier.pallets <= 0, // palettes non vérifiées en step1
       };
     });
 
@@ -134,9 +134,20 @@ export default function FormReservation() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
+    let finalSuppliers = suppliers;
+
+    if (suppliers.length === 1) {
+      finalSuppliers = [
+        {
+          ...suppliers[0],
+          pallets: Number(totalPallets),
+        },
+      ];
+    }
+
     if (!validateSuppliers()) return;
 
-    const totalUsed = suppliers.reduce(
+    const totalUsed = finalSuppliers.reduce(
       (sum, s) => sum + (Number(s.pallets) || 0),
       0
     );
@@ -150,7 +161,7 @@ export default function FormReservation() {
     }
     setShowPalletsError(false); // réinitialise si ok
 
-    console.log({ orderNumber, totalPallets, email, suppliers });
+    console.log({ orderNumber, totalPallets, email, suppliers: finalSuppliers });
     alert("Formulaire envoyé (voir console)");
   };
 
