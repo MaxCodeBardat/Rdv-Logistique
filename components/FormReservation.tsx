@@ -34,6 +34,8 @@ export default function FormReservation() {
     setErrorsStep1({ orderNumber: false, totalPallets: false, email: false });
     setShowErrorMessage(false);
     setShake(false);
+    setShowSupplierError(false);
+    setShowPalletsError(false);
   }, [step]);
 
   const goToStep2 = () => {
@@ -55,8 +57,7 @@ export default function FormReservation() {
 
     setShowErrorMessage(false);
 
-    // Validation fournisseurs pour step1 → uniquement noms
-    validateSuppliers(true);
+    setShowSupplierError(false);
 
     setStep(2);
   };
