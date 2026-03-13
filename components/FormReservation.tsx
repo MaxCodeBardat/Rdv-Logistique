@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { v4 as uuid } from "uuid";
 import { Trash2 } from "lucide-react";
 import { Plus } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 type Supplier = {
   id: string;
@@ -12,6 +13,7 @@ type Supplier = {
 };
 
 export default function FormReservation() {
+  const router = useRouter();
   const [step, setStep] = useState(1); // 1 = infos générales, 2 = fournisseurs
   const [orderNumber, setOrderNumber] = useState("");
   const [totalPallets, setTotalPallets] = useState<number | "">("");
@@ -160,9 +162,8 @@ export default function FormReservation() {
       return;
     }
     setShowPalletsError(false); // réinitialise si ok
-
     console.log({ orderNumber, totalPallets, email, suppliers: finalSuppliers });
-    alert("Formulaire envoyé (voir console)");
+    router.push(`/disponibilites?palettes=${totalPallets}`);
   };
 
   const used = suppliers.reduce((sum, s) => sum + s.pallets, 0);
@@ -357,7 +358,7 @@ export default function FormReservation() {
               type="submit"
               className="px-4 py-2 bg-black text-white rounded-md hover:bg-gray-700 transition"
             >
-              Valider le RDV
+              Consulter les disponibilités
             </button>
           </div>
         </div>
