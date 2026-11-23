@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 :root {
   --background: #ffffff;
@@ -19,19 +19,201 @@ body {
 }
 
 @keyframes shake {
-  0% { transform: translateX(0); }
-  25% { transform: translateX(-5px); }
-  50% { transform: translateX(5px); }
-  75% { transform: translateX(-5px); }
-  100% { transform: translateX(0); }
+  0% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-5px);
+  }
+  50% {
+    transform: translateX(5px);
+  }
+  75% {
+    transform: translateX(-5px);
+  }
+  100% {
+    transform: translateX(0);
+  }
 }
 
 .animate-shake {
   animation: shake 0.4s ease;
 }
 
-html, body, #__next {
+html,
+body,
+#__next {
   height: 100%;
   margin: 0;
   padding: 0;
+}
+
+/* Grid calendrier */
+.rbc-time-view,
+.rbc-time-header,
+.rbc-time-content,
+.rbc-day-slot,
+.rbc-timeslot-group {
+  border-color: #757575 !important; /* gray-700 */
+}
+
+/* lignes internes */
+.rbc-time-content > * + * > * {
+  border-left: 1px solid #374151 !important;
+}
+
+/* Header période (ex: 18 - 24 mai) */
+.rbc-toolbar-label {
+  font-size: 1.25rem; /* text-xl */
+  font-weight: 600; /* semi-bold */
+}
+
+/* ❌ Supprime la ligne vide sous les jours */
+.rbc-time-header-content {
+  border-bottom: none !important;
+}
+
+.rbc-allday-cell {
+  display: none !important;
+}
+
+/* RDV pleine largeur */
+.rbc-event {
+  width: 100% !important;
+  left: 0 !important;
+}
+
+/* supprime les décalages internes */
+.rbc-day-slot .rbc-event {
+  margin-right: 0 !important;
+  left: 0 !important;
+  right: auto !important;
+  width: 100% !important;
+  border-radius: 0 !important;
+  border: 0 !important;
+}
+
+/* Les événements occupent toute la colonne, sans retrait latéral intégré. */
+.rbc-day-slot .rbc-events-container {
+  left: 0 !important;
+  right: 0 !important;
+  margin-right: 0 !important;
+}
+
+/* Redessine les séparations horaires au-dessus des événements, sans bloquer les clics. */
+.rbc-admin-grid-lines {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent 39px,
+    #757575 39px,
+    #757575 40px
+  );
+}
+
+/* Header jours plus clean */
+.rbc-header {
+  font-weight: 500;
+  padding: 8px 0;
+}
+
+/* Centrer les heures */
+.rbc-time-gutter {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.rbc-label {
+  text-align: center;
+  width: 100%;
+}
+
+.rbc-day-slot:hover .custom-overlay {
+  background-color: #d1d5db; /* gray-300 */
+}
+
+.availability-lock-icon {
+  position: absolute;
+  transition:
+    opacity 180ms ease,
+    transform 220ms ease;
+}
+
+.availability-lock-indicator {
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.availability-lock[data-availability='closed'] .availability-lock-icon--closed {
+  opacity: 1;
+  transform: rotate(0) scale(1);
+}
+
+.availability-lock[data-availability='closed'] .availability-lock-icon--open {
+  opacity: 0;
+  transform: rotate(-18deg) scale(0.75);
+}
+
+.availability-lock[data-availability='closed']:hover .availability-lock-icon--closed {
+  opacity: 0;
+  transform: rotate(18deg) scale(0.75);
+}
+
+.availability-lock[data-availability='closed']:hover .availability-lock-icon--open {
+  opacity: 1;
+  transform: rotate(0) scale(1);
+}
+
+.availability-lock[data-availability='open'] .availability-lock-icon--open {
+  opacity: 0;
+  transform: rotate(-18deg) scale(0.75);
+}
+
+.availability-lock[data-availability='open'] .availability-lock-icon--closed {
+  opacity: 0;
+  transform: rotate(18deg) scale(0.75);
+}
+
+.availability-lock[data-availability='closed'] .availability-lock-indicator,
+.availability-lock[data-availability='open']:hover .availability-lock-indicator {
+  opacity: 1;
+}
+
+.availability-lock[data-availability='open']:hover .availability-lock-icon--open {
+  animation: unlocked-hover-open 900ms ease-out forwards;
+}
+
+.availability-lock[data-availability='open']:hover .availability-lock-icon--closed {
+  animation: unlocked-hover-close 900ms ease-out forwards;
+}
+
+@keyframes unlocked-hover-open {
+  0%,
+  45% {
+    opacity: 1;
+    transform: rotate(0) scale(1);
+  }
+  60%,
+  100% {
+    opacity: 0;
+    transform: rotate(-18deg) scale(0.75);
+  }
+}
+
+@keyframes unlocked-hover-close {
+  0%,
+  45% {
+    opacity: 0;
+    transform: rotate(18deg) scale(0.75);
+  }
+  60%,
+  100% {
+    opacity: 1;
+    transform: rotate(0) scale(1);
+  }
 }

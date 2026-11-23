@@ -1,44 +1,176 @@
-"use client";
+'use client';
 
-import { addDays, format } from "date-fns";
-import { useState } from "react";
-import { ChevronDown } from "lucide-react";
-import { useSearchParams } from "next/navigation";
+import { addDays, format } from 'date-fns';
+import { Suspense, useEffect, useRef, useState } from 'react';
+import { ChevronDown } from 'lucide-react';
+import { BadgeCheck } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
+import { fr } from 'date-fns/locale';
 
 export default function DisponibilitesPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center">
+          Chargement des disponibilités...
+        </div>
+      }
+    >
+      <DisponibilitesContent />
+    </Suspense>
+  );
+}
 
+function DisponibilitesContent() {
   const days = Array.from({ length: 7 }, (_, i) => {
     const date = addDays(new Date(), i);
     return {
       date,
-      label: format(date, "EEEE d MMM"),
+      label: format(date, 'EEEE d MMM'),
     };
   });
 
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
-  
+  const dayButtonRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
+  const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
+  const [bookingLoading, setBookingLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const searchParams = useSearchParams();
-  const pallets = Number(searchParams.get("palettes") || 0);  
+  const pallets = Number(searchParams.get('palettes') || 0);
   const appointmentDuration = pallets >= 15 ? 60 : 30;
   const [slots, setSlots] = useState<string[]>([]);
-  const fetchAvailability = async (date: Date) => {
+  const [bookingSuccess, setBookingSuccess] = useState(false);
+  const [loadingDays, setLoadingDays] = useState(true);
+  const [availableDays, setAvailableDays] = useState<
+    { date: Date; label: string; slots: string[] }[]
+  >([]);
+  const fetchDaysWithAvailability = async () => {
+    setLoadingDays(true);
+    const results = [];
 
-    const formattedDate = date.toISOString().split("T")[0];
+    for (let i = 0; i < 7; i++) {
+      const date = addDays(new Date(), i);
+      const formattedDate = date.toISOString().split('T')[0];
+
+      const res = await fetch(
+        `/api/availability?date=${formattedDate}&pallets=${pallets}`
+      );
+
+      const data = await res.json();
+
+      if (data.slots.length > 0) {
+        results.push({
+          date,
+          label: format(date, 'EEEE d MMM', { locale: fr }),
+          slots: data.slots,
+        });
+      }
+    }
+
+    setAvailableDays(results);
+    setLoadingDays(false);
+  };
+  useEffect(() => {
+    fetchDaysWithAvailability();
+  }, []);
+  const fetchAvailability = async (date: Date) => {
+    const formattedDate = date.toISOString().split('T')[0];
 
     const res = await fetch(
-        `/api/availability?date=${formattedDate}&pallets=${pallets}`
+      `/api/availability?date=${formattedDate}&pallets=${pallets}`
     );
 
     const data = await res.json();
 
     setSlots(data.slots);
+  };
+  const formattedDate = selectedDay
+    ? format(selectedDay, 'EEEE d MMMM yyyy', { locale: fr }).replace(
+        /^\w/,
+        (c) => c.toUpperCase()
+      )
+    : '';
+  const formattedTime = selectedSlot ? selectedSlot.replace(':', 'h') : '';
+  const bookAppointment = async () => {
+    if (!selectedDay || !selectedSlot) return;
 
-    };
+    setBookingLoading(true);
+
+    const date = selectedDay.toISOString().split('T')[0];
+
+    const res = await fetch('/api/appointments', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        date,
+        start_time: selectedSlot,
+        duration: appointmentDuration,
+        order_number: 'TEMP',
+        email: 'TEMP',
+        total_pallets: pallets,
+      }),
+    });
+
+    const data = await res.json();
+
+    setBookingLoading(false);
+
+    if (res.ok) {
+      setBookingSuccess(true);
+      fetchAvailability(selectedDay);
+    } else {
+      setErrorMessage(data.error || 'Erreur lors de la réservation');
+    }
+  };
+
+  if (bookingSuccess) {
+    return (
+      <div className="w-full min-h-screen bg-gray-900 flex items-center justify-center px-6">
+        <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-8 text-center animate-fade-in">
+          {/* ✅ Icône */}
+          <BadgeCheck className="w-12 h-12 text-green-500 mx-auto mb-4" />
+
+          {/* Titre */}
+          <h2 className="text-2xl font-semibold text-gray-900 mb-2">
+            Rendez-vous confirmé
+          </h2>
+
+          {/* Texte */}
+          <p className="text-gray-600 mb-6">
+            Votre créneau a bien été réservé.
+          </p>
+
+          {/* 📋 (optionnel mais FORTEMENT recommandé) */}
+          <div className="bg-gray-100 rounded-xl p-4 text-left text-sm mb-6 space-y-2">
+            <p>
+              <span className="text-gray-500">Date : {formattedDate}</span>
+            </p>
+            <p>
+              <span className="text-gray-500">Heure : {formattedTime}</span>
+            </p>
+            <p>
+              <span className="text-gray-500">Palettes : {pallets}</span>
+            </p>
+          </div>
+
+          {/* CTA */}
+          <button
+            onClick={() => (window.location.href = '/')}
+            className="w-full bg-gray-900 text-white py-3 rounded-xl hover:bg-gray-800 transition"
+          >
+            Retour au formulaire
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full min-h-screen bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 font-sans pt-15 px-6">
       <main className="max-w-3xl mx-auto flex flex-col gap-6">
-
         {/* Header */}
         <div className="text-center">
           <h1 className="text-3xl font-bold">
@@ -47,68 +179,117 @@ export default function DisponibilitesPage() {
 
           <div className="mt-2 pt-5">
             <p className="text-gray-600 dark:text-gray-300">
-              Veuillez sélectionner un jour afin de consulter les créneaux disponibles pour votre livraison.
+              Veuillez sélectionner un jour afin de consulter les créneaux
+              disponibles pour votre livraison.
             </p>
           </div>
         </div>
 
         <p className="text-gray-600">
-            Durée estimée du rendez-vous : {appointmentDuration} minutes
+          Durée estimée du rendez-vous : {appointmentDuration} minutes
         </p>
 
         {/* Card disponibilités */}
         <div className="pt-7">
           <div className="max-w-xl mx-auto p-6 bg-white shadow-md rounded-lg space-y-4">
-
             <h2 className="text-center text-2xl font-bold text-gray-800 mb-4">
               Choisir un jour
             </h2>
 
             <div className="space-y-2">
-              {days.map((day, index) => {
-                const isOpen = selectedDay?.toDateString() === day.date.toDateString();
+              {loadingDays ? (
+                <div className="flex justify-center py-10">
+                  <div className="w-8 h-8 border-4 border-gray-300 border-t-black rounded-full animate-spin"></div>
+                </div>
+              ) : (
+                <>
+                  {availableDays.map((day, index) => {
+                    const isOpen =
+                      selectedDay?.toDateString() === day.date.toDateString();
 
                     return (
-                        <div key={index} className="border border-black rounded-md overflow-hidden">
+                      <div
+                        key={index}
+                        className="border border-black rounded-md overflow-hidden"
+                      >
+                        {/* Bouton jour */}
+                        <button
+                          ref={(el) => {
+                            dayButtonRefs.current[index] = el;
+                          }}
+                          onClick={() => {
+                            if (
+                              selectedDay?.toDateString() ===
+                              day.date.toDateString()
+                            ) {
+                              setSelectedDay(null);
+                            } else {
+                              setSelectedDay(day.date);
+                              setSlots(day.slots); // 🔥 important
+                            }
+                          }}
+                          className="w-full flex items-center justify-between px-4 py-3 text-black hover:bg-gray-50 transition"
+                        >
+                          <span>{day.label}</span>
 
-                            {/* Bouton jour */}
-                            <button
+                          <ChevronDown
+                            size={18}
+                            className={`transition-transform duration-300 ${
+                              isOpen ? 'rotate-180' : ''
+                            }`}
+                          />
+                        </button>
+
+                        {/* Créneaux */}
+                        <div
+                          className={`transition-all duration-300 overflow-hidden ${
+                            isOpen ? 'max-h-96 p-4 pt-0' : 'max-h-0'
+                          }`}
+                        >
+                          <div className="grid grid-cols-3 gap-2">
+                            {slots.map((slot) => (
+                              <button
+                                key={slot}
                                 onClick={() => {
-                                setSelectedDay(day.date);
-                                fetchAvailability(day.date);
+                                  setErrorMessage(null);
+                                  setSelectedSlot(
+                                    selectedSlot === slot ? null : slot
+                                  );
                                 }}
-                                className="w-full flex items-center justify-between px-4 py-3 text-black hover:bg-gray-50 transition"
-                            >
-                                <span>{day.label}</span>
-
-                                <ChevronDown
-                                size={18}
-                                className={`transition-transform duration-300 ${
-                                    isOpen ? "rotate-180" : ""
-                                }`}
-                                />
-                            </button>
-
-                            {/* Créneaux */}
-                            <div
-                                className={`transition-all duration-300 overflow-hidden ${
-                                isOpen ? "max-h-96 p-4 pt-0" : "max-h-0"
-                                }`}
-                            >
-                                <div className="grid grid-cols-3 gap-2">
-                                    {slots.map((slot) => (
-                                        <button
-                                        key={slot}
-                                        className="border border-black rounded-md py-2 text-black hover:bg-gray-50 transition"
-                                        >
-                                        {slot}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
+                                className={`cursor-pointer border border-black rounded-md py-2 transition
+                                                ${selectedSlot === slot ? 'bg-black text-white' : 'text-black hover:bg-gray-50'}
+                                            `}
+                              >
+                                {slot}
+                              </button>
+                            ))}
+                          </div>
+                          {slots.length === 0 && (
+                            <p className="text-sm text-gray-500 mt-2">
+                              Aucun créneau disponible pour ce jour.
+                            </p>
+                          )}
                         </div>
+                      </div>
                     );
-                })}
+                  })}
+                  {selectedSlot && (
+                    <div className="mt-4 flex flex-col items-end gap-2">
+                      {errorMessage && (
+                        <p className="text-red-500 text-sm">{errorMessage}</p>
+                      )}
+
+                      <button
+                        onClick={bookAppointment}
+                        disabled={bookingLoading}
+                        className="px-4 py-2 bg-black text-white rounded-md hover:bg-gray-700 transition"
+                      >
+                        {bookingLoading ? 'Réservation...' : 'Confirmer le RDV'}
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           </div>
         </div>

@@ -203,7 +203,15 @@ export default function FormReservation() {
             <input
               type="number"
               value={totalPallets}
-              onChange={(e) => setTotalPallets(Number(e.target.value))}
+              onFocus={() => {
+                if (totalPallets === 0) setTotalPallets("");
+              }}
+              onChange={(e) =>
+                setTotalPallets(e.target.value === "" ? "" : Number(e.target.value))
+              }
+              onBlur={() => {
+                if (totalPallets === "") setTotalPallets(0);
+              }}
               className={`w-full border rounded-md px-3 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 transition
                 ${errorsStep1.totalPallets ? "border-red-500 focus:ring-red-400" : ""}`}
             />
