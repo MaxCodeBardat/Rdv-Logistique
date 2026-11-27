@@ -91,6 +91,7 @@ body,
   width: 100% !important;
   border-radius: 0 !important;
   border: 0 !important;
+  z-index: 6 !important;
 }
 
 /* Les événements occupent toute la colonne, sans retrait latéral intégré. */

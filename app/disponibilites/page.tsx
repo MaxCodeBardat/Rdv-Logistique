@@ -4,8 +4,8 @@ import { addDays, format } from 'date-fns';
 import { Suspense, useEffect, useRef, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { BadgeCheck } from 'lucide-react';
-import { useSearchParams } from 'next/navigation';
 import { fr } from 'date-fns/locale';
+import { useBookingDraft } from '@/components/BookingDraftProvider';
 
 export default function DisponibilitesPage() {
   return (
@@ -36,8 +36,8 @@ function DisponibilitesContent() {
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [bookingLoading, setBookingLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const searchParams = useSearchParams();
-  const pallets = Number(searchParams.get('palettes') || 0);
+  const { bookingDraft, clearBookingDraft } = useBookingDraft();
+  const pallets = bookingDraft?.total_pallets ?? 0;
   const appointmentDuration = pallets >= 15 ? 60 : 30;
   const [slots, setSlots] = useState<string[]>([]);
   const [bookingSuccess, setBookingSuccess] = useState(false);
@@ -72,8 +72,9 @@ function DisponibilitesContent() {
     setLoadingDays(false);
   };
   useEffect(() => {
+    if (!bookingDraft) return;
     fetchDaysWithAvailability();
-  }, []);
+  }, [bookingDraft]);
   const fetchAvailability = async (date: Date) => {
     const formattedDate = date.toISOString().split('T')[0];
 
@@ -93,36 +94,38 @@ function DisponibilitesContent() {
     : '';
   const formattedTime = selectedSlot ? selectedSlot.replace(':', 'h') : '';
   const bookAppointment = async () => {
-    if (!selectedDay || !selectedSlot) return;
+    if (!selectedDay || !selectedSlot || !bookingDraft) return;
 
     setBookingLoading(true);
 
     const date = selectedDay.toISOString().split('T')[0];
 
-    const res = await fetch('/api/appointments', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        date,
-        start_time: selectedSlot,
-        duration: appointmentDuration,
-        order_number: 'TEMP',
-        email: 'TEMP',
-        total_pallets: pallets,
-      }),
-    });
+    try {
+      const res = await fetch('/api/appointments', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          date,
+          start_time: selectedSlot,
+          duration: appointmentDuration,
+          ...bookingDraft,
+        }),
+      });
 
-    const data = await res.json();
-
-    setBookingLoading(false);
-
-    if (res.ok) {
-      setBookingSuccess(true);
-      fetchAvailability(selectedDay);
-    } else {
-      setErrorMessage(data.error || 'Erreur lors de la réservation');
+      const data = await res.json();
+      if (res.ok) {
+        clearBookingDraft();
+        setBookingSuccess(true);
+        fetchAvailability(selectedDay);
+      } else {
+        setErrorMessage(data.error || 'Erreur lors de la réservation');
+      }
+    } catch {
+      setErrorMessage('Le service de réservation est momentanément indisponible. Réessayez.');
+    } finally {
+      setBookingLoading(false);
     }
   };
 
@@ -149,7 +152,7 @@ function DisponibilitesContent() {
               <span className="text-gray-500">Date : {formattedDate}</span>
             </p>
             <p>
-              <span className="text-gray-500">Heure : {formattedTime}</span>
+              <span className="text-gray-500">Horaire : {formattedTime}</span>
             </p>
             <p>
               <span className="text-gray-500">Palettes : {pallets}</span>
@@ -164,6 +167,14 @@ function DisponibilitesContent() {
             Retour au formulaire
           </button>
         </div>
+      </div>
+    );
+  }
+
+  if (!bookingDraft) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-900 px-6 text-center text-white">
+        <p>Informations de réservation introuvables. Veuillez revenir au formulaire.</p>
       </div>
     );
   }

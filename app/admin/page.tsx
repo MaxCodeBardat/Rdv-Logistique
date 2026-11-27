@@ -16,6 +16,12 @@ const localizer = dateFnsLocalizer({
   locales,
 });
 
+const STATUS_LABELS: Record<string, string> = {
+  pending: 'À venir',
+  done: 'Effectué',
+  no_show: 'Non honoré',
+};
+
 const AdminCalendarContext = createContext<{
   unlockedDays: string[];
   openSlotManager: (date: Date) => void;
@@ -81,6 +87,7 @@ export default function AdminPage() {
     total_pallets: number;
     email: string;
     status: string;
+    suppliers: { name: string; pallets: number }[];
   };
 
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -93,6 +100,7 @@ export default function AdminPage() {
   const [filter, setFilter] = useState<'all' | 'pending' | 'done' | 'no_show'>(
     'all'
   );
+  const [statusError, setStatusError] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/admin/appointments')
@@ -104,25 +112,38 @@ export default function AdminPage() {
   }, []);
 
   async function updateStatus(id: string, status: string) {
-    await fetch(`/api/admin/appointments/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status }),
-    });
+    setStatusError(null);
+    try {
+      const response = await fetch(`/api/admin/appointments/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      });
+      if (!response.ok) {
+        setStatusError('Impossible de mettre à jour le statut. Réessayez.');
+        return;
+      }
+    } catch {
+      setStatusError('Impossible de mettre à jour le statut. Réessayez.');
+      return;
+    }
     setAppointments((prev) =>
       prev.map((a) => (a.id === id ? { ...a, status } : a))
+    );
+    setSelectedAppointment((current) =>
+      current?.id === id ? { ...current, status } : current
     );
   }
 
   if (loading) return <p className="p-6">Chargement...</p>;
 
   const calendarEvents = appointments.map((a) => {
-    const start = new Date(`${a.date}T${a.start_time}`);
+    const start = new Date(`${a.date}T${a.start_time.slice(0, 5)}:00`);
     const end = new Date(start);
     end.setMinutes(end.getMinutes() + (a.duration || 30));
     return {
       id: a.id,
-      title: `${a.total_pallets} palettes`,
+      title: a.suppliers?.length > 1 ? 'Multi-Fournisseur' : a.suppliers?.[0]?.name || 'Fournisseur non renseigné',
       start,
       end,
       status: a.status,
@@ -141,14 +162,23 @@ export default function AdminPage() {
         borderRadius: 0,
         border: 'none',
         color: '#111',
-        padding: '4px',
+        padding: '1px',
       },
     };
   };
 
   const EventComponent = ({ event }: any) => (
-    <div className="text-xs leading-tight">
-      <div className="font-semibold">{event.raw.total_pallets} palettes</div>
+    <div className="relative h-full min-h-0 w-full overflow-hidden text-center leading-tight">
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 px-1">
+        <div className="w-full truncate text-[11px] font-semibold">
+          {event.raw.suppliers?.length > 1 ? 'Multi-Fournisseur' : event.raw.suppliers?.[0]?.name || 'Fournisseur non renseigné'}
+          {' · '}{event.raw.total_pallets} palettes
+        </div>
+        <div className="w-full truncate text-[10px] font-semibold">{format(event.start, "HH'h'mm")} – {format(event.end, "HH'h'mm")}</div>
+      </div>
+      <div className="absolute bottom-0 right-1 max-w-[90%] truncate text-[8px] font-normal leading-[9px]" title={`N° ${event.raw.order_number}`}>
+        N° {event.raw.order_number}
+      </div>
     </div>
   );
 
@@ -201,8 +231,7 @@ export default function AdminPage() {
               culture="fr"
               formats={{
                 timeGutterFormat: 'HH:mm',
-                eventTimeRangeFormat: ({ start, end }: any) =>
-                  `${format(start, 'HH:mm')} - ${format(end, 'HH:mm')}`,
+                eventTimeRangeFormat: () => '',
                 dayRangeHeaderFormat: ({ start, end }: any) =>
                   `${format(start, 'd')} - ${format(end, 'd MMMM', { locale: fr })}`,
                 dayFormat: (date: Date) => format(date, 'EEEE d', { locale: fr }),
@@ -255,41 +284,56 @@ export default function AdminPage() {
               <p>
                 <strong>Date :</strong>{' '}
                 {format(
-                  new Date(selectedAppointment.date),
+                  new Date(`${selectedAppointment.date}T12:00:00`),
                   'EEEE d MMMM yyyy',
                   { locale: fr }
-                )}
+                ).replace(/^\w/, (letter) => letter.toUpperCase())}
               </p>
               <p>
-                <strong>Heure :</strong> {selectedAppointment.start_time}
+                <strong>Horaire :</strong> {format(new Date(`2000-01-01T${selectedAppointment.start_time.slice(0, 5)}:00`), "HH'h'mm")} – {format(new Date(new Date(`2000-01-01T${selectedAppointment.start_time.slice(0, 5)}:00`).getTime() + selectedAppointment.duration * 60_000), "HH'h'mm")}
               </p>
               <p>
                 <strong>N° de Commande :</strong>{' '}
                 {selectedAppointment.order_number}
               </p>
               <p>
-                <strong>Email :</strong> {selectedAppointment.email}
-              </p>
-              <p>
                 <strong>Nombre de Palettes :</strong>{' '}
-                {selectedAppointment.total_pallets}
+                {selectedAppointment.total_pallets} palettes
+              </p>
+              <div>
+                <strong>Fournisseur{selectedAppointment.suppliers?.length === 1 ? '' : 's'} :</strong>
+                {selectedAppointment.suppliers?.length ? (
+                  <ul className="ml-5 list-disc">
+                    {selectedAppointment.suppliers.map((supplier, index) => (
+                      <li key={`${supplier.name}-${index}`}>
+                        {selectedAppointment.suppliers.length === 1
+                          ? `${supplier.name} (${supplier.pallets} palettes)`
+                          : `${supplier.name} — ${supplier.pallets} palettes`}
+                      </li>
+                    ))}
+                  </ul>
+                ) : <span> Non renseigné</span>}
+              </div>
+              <p>
+                <strong>Contact :</strong> {selectedAppointment.email}
               </p>
               <p>
-                <strong>Statut :</strong> {selectedAppointment.status}
+                <strong>Statut :</strong> {STATUS_LABELS[selectedAppointment.status] || selectedAppointment.status}
               </p>
             </div>
+            {statusError && <p role="alert" className="mt-3 text-sm text-red-600">{statusError}</p>}
             <div className="flex gap-3 mt-6">
               <button
                 onClick={() => updateStatus(selectedAppointment.id, 'done')}
                 className="flex-1 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
               >
-                ✓ Terminé
+                ✓ Effectué
               </button>
               <button
                 onClick={() => updateStatus(selectedAppointment.id, 'no_show')}
                 className="flex-1 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
               >
-                ✕ Absent
+                ✕ Non honoré
               </button>
               <button
                 onClick={() => updateStatus(selectedAppointment.id, 'pending')}
@@ -297,7 +341,7 @@ export default function AdminPage() {
               >
                 <ArrowPathIcon className="h-5 w-5" />
                 <span className="absolute -top-8 left-1/2 -translate-x-1/2 text-xs bg-black text-white px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap">
-                  Réinitialiser l’état du RDV
+                  Réinitialiser le statut
                 </span>
               </button>
             </div>

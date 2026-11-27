@@ -1,38 +1,35 @@
 # To-do du projet RDV Logistique
 
-## À traiter plus tard
+## À traiter
 
-### Finaliser le flux de réservation client
+### Valider et publier la branche du calendrier admin
 
-- Faire transiter jusqu’au backend toutes les données utiles du formulaire : numéro de commande, email, total de palettes, fournisseurs et répartition de palettes.
-- Remplacer les valeurs temporaires `TEMP` envoyées lors de la réservation et enregistrer les vraies données dans Supabase.
-- Définir quelles informations de réservation doivent apparaître dans les aperçus des rendez-vous du calendrier admin, puis les afficher de façon lisible.
-- Vérifier le schéma Supabase avant de choisir la structure de stockage des fournisseurs et de leur répartition.
-- Conserver la validation serveur et la contrainte PostgreSQL qui empêche les chevauchements.
+- Relire et valider les changements de la branche `codex/admin-appointment-details` avant publication.
+- Créer le commit puis pousser la branche quand elle est prête.
 
-> Pour le moment, les valeurs `TEMP` sont conservées volontairement pour les tests.
+### Rendre les créneaux 14 h–17 h persistants et partagés
 
-### Nettoyer la configuration VS Code avant publication
-
-- Examiner `.vscode/settings.json` et retirer les exclusions contenant des chemins propres à la machine.
-- Ne pas inclure les réglages personnels dans les commits destinés au dépôt partagé.
-
-### Préparer la publication des branches
-
-- Pousser séparément `codex/rls-hardening` et `Page-verification-horaire` après validation de leurs commits respectifs.
-- Intégrer ensuite le commit RLS à la branche de la fonctionnalité selon la stratégie de fusion retenue.
-
-### Mettre à jour le middleware Next.js
-
-- Migrer `middleware.ts` vers la convention `proxy.ts` recommandée par Next.js 16.
-- Le build est actuellement configuré avec Webpack, car Turbopack plante sur le traitement PostCSS de `styles/globals.css` dans l’environnement Windows.
-
-### Rendre les créneaux 14 h–17 h persistants et réservables
-
-- Faire passer les actions « verrouiller » et « déverrouiller » par une API backend sécurisée, puis enregistrer l’état par date dans Supabase.
-- Utiliser la base comme source de vérité afin que les changements persistent après rechargement et soient reflétés pour l’administrateur et les utilisateurs.
-- Mettre à jour l’API de disponibilités et le formulaire client pour proposer ces heures uniquement les jours déverrouillés, et rafraîchir l’affichage après les changements.
-- Créer, vérifier et appliquer la migration Supabase correspondante avant la mise en production.
+- Faire passer les actions « verrouiller » et « déverrouiller » par une API backend sécurisée et enregistrer l’état par date dans Supabase.
+- Utiliser la base comme source de vérité afin que les changements persistent après rechargement et soient reflétés côté admin et côté client.
+- Mettre à jour l’API de disponibilités et le formulaire client pour proposer ces heures uniquement les jours déverrouillés, puis rafraîchir les affichages après les changements.
+- Créer et appliquer une migration pour cette fonctionnalité.
 
 > Pour l’instant, le déblocage dans le calendrier admin est temporaire et limité à la session du navigateur. Il ne modifie ni la base de données ni les disponibilités côté client.
 
+### Migrer le middleware Next.js
+
+- Remplacer `middleware.ts` par la convention `proxy.ts` recommandée par Next.js 16.
+
+### Réévaluer le build avec Turbopack
+
+- Le build de production fonctionne avec Webpack. Turbopack avait échoué sur le traitement PostCSS de `styles/globals.css` dans l’environnement Windows ; réexaminer ce point.
+
+### Rendre toutes les pages responsive
+
+- Adapter et vérifier les pages sur les tailles d’écran mobiles et desktop.
+
+### Supprimer la possibilité de choisir samedi et dimanche
+
+-Pourvoir défiler les dispos des chaque semaine
+
+- voir pour enlever possibilité de réserver créneaux qui chavauche 14h (exemple créneau de 60 min qui commence à 13h30)

@@ -6,7 +6,10 @@ type AppointmentRequest = {
   order_number?: unknown;
   email?: unknown;
   total_pallets?: unknown;
+  suppliers?: unknown;
 };
+
+type SupplierInput = { name: string; pallets: number };
 
 export async function POST(request: Request) {
   let body: AppointmentRequest;
@@ -21,7 +24,7 @@ export async function POST(request: Request) {
     return Response.json({ error: 'Requête invalide.' }, { status: 400 });
   }
 
-  const { date, start_time: selectedSlot, order_number, email, total_pallets } = body;
+  const { date, start_time: selectedSlot, order_number, email, total_pallets, suppliers } = body;
 
   if (typeof date !== 'string' || !isValidDate(date)) {
     return Response.json({ error: 'Date invalide.' }, { status: 400 });
@@ -39,8 +42,8 @@ export async function POST(request: Request) {
     return Response.json({ error: 'Nombre de palettes invalide.' }, { status: 400 });
   }
 
-  const orderNumber = typeof order_number === 'string' ? order_number.trim() : 'TEMP';
-  const contactEmail = typeof email === 'string' ? email.trim() : 'TEMP';
+  const orderNumber = typeof order_number === 'string' ? order_number.trim() : '';
+  const contactEmail = typeof email === 'string' ? email.trim() : '';
 
   if (orderNumber.length < 1 || orderNumber.length > 100) {
     return Response.json({ error: 'Numéro de commande invalide.' }, { status: 400 });
@@ -48,9 +51,37 @@ export async function POST(request: Request) {
 
   if (
     contactEmail.length > 254 ||
-    (contactEmail !== 'TEMP' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail))
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)
   ) {
     return Response.json({ error: 'Adresse email invalide.' }, { status: 400 });
+  }
+
+  if (!Array.isArray(suppliers) || suppliers.length < 1 || suppliers.length > 30) {
+    return Response.json({ error: 'Liste de fournisseurs invalide.' }, { status: 400 });
+  }
+
+  const normalizedSuppliers: SupplierInput[] = [];
+  for (const supplier of suppliers) {
+    if (
+      !supplier ||
+      typeof supplier !== 'object' ||
+      typeof supplier.name !== 'string' ||
+      typeof supplier.pallets !== 'number' ||
+      !Number.isSafeInteger(supplier.pallets) ||
+      supplier.pallets < 1
+    ) {
+      return Response.json({ error: 'Répartition des fournisseurs invalide.' }, { status: 400 });
+    }
+
+    const name = supplier.name.trim();
+    if (!name || name.length > 120) {
+      return Response.json({ error: 'Nom de fournisseur invalide.' }, { status: 400 });
+    }
+    normalizedSuppliers.push({ name, pallets: supplier.pallets });
+  }
+
+  if (normalizedSuppliers.reduce((sum, supplier) => sum + supplier.pallets, 0) !== total_pallets) {
+    return Response.json({ error: 'La répartition ne correspond pas au total de palettes.' }, { status: 400 });
   }
 
   const duration = total_pallets >= 15 ? 60 : 30;
@@ -63,6 +94,7 @@ export async function POST(request: Request) {
       order_number: orderNumber,
       email: contactEmail,
       total_pallets,
+      suppliers: normalizedSuppliers,
     });
 
     if (error) {

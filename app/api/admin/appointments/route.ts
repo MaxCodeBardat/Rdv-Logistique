@@ -17,7 +17,7 @@ export async function GET() {
   try {
     ({ data, error } = await getSupabaseAdmin()
       .from('appointments')
-      .select('*')
+      .select('id, date, start_time, duration, order_number, total_pallets, email, suppliers, status')
       .order('date', { ascending: true })
       .order('start_time', { ascending: true }));
   } catch (cause) {
@@ -29,5 +29,5 @@ export async function GET() {
     return NextResponse.json({ error: 'DB error' }, { status: 500 });
   }
 
-  return NextResponse.json(data);
+  return NextResponse.json(data, { headers: { 'Cache-Control': 'private, no-store' } });
 }

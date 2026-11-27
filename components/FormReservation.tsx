@@ -5,6 +5,7 @@ import { v4 as uuid } from "uuid";
 import { Trash2 } from "lucide-react";
 import { Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useBookingDraft } from "@/components/BookingDraftProvider";
 
 type Supplier = {
   id: string;
@@ -14,6 +15,7 @@ type Supplier = {
 
 export default function FormReservation() {
   const router = useRouter();
+  const { setBookingDraft } = useBookingDraft();
   const [step, setStep] = useState(1); // 1 = infos générales, 2 = fournisseurs
   const [orderNumber, setOrderNumber] = useState("");
   const [totalPallets, setTotalPallets] = useState<number | "">("");
@@ -44,8 +46,8 @@ export default function FormReservation() {
     // validation step1 fields
     const newErrors = {
       orderNumber: orderNumber.trim() === "",
-      totalPallets: totalPallets === "" || totalPallets === 0,
-      email: email.trim() === "",
+      totalPallets: totalPallets === "" || !Number.isSafeInteger(totalPallets) || totalPallets < 1,
+      email: !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()),
     };
     setErrorsStep1(newErrors);
     const hasError = Object.values(newErrors).some(Boolean);
@@ -162,8 +164,18 @@ export default function FormReservation() {
       return;
     }
     setShowPalletsError(false); // réinitialise si ok
-    console.log({ orderNumber, totalPallets, email, suppliers: finalSuppliers });
-    router.push(`/disponibilites?palettes=${totalPallets}`);
+    const draft = {
+      order_number: orderNumber.trim(),
+      email: email.trim(),
+      total_pallets: Number(totalPallets),
+      suppliers: finalSuppliers.map(({ name, pallets }) => ({
+        name: name.trim(),
+        pallets: Number(pallets),
+      })),
+    };
+
+    setBookingDraft(draft);
+    router.push('/disponibilites');
   };
 
   const used = suppliers.reduce((sum, s) => sum + s.pallets, 0);
@@ -187,6 +199,7 @@ export default function FormReservation() {
               Numéro de commande
             </label>
             <input
+              maxLength={100}
               value={orderNumber}
               onChange={(e) => setOrderNumber(e.target.value)}
               placeholder="OAEMUXXXXXX"
@@ -202,6 +215,8 @@ export default function FormReservation() {
             </label>
             <input
               type="number"
+              min={1}
+              step={1}
               value={totalPallets}
               onFocus={() => {
                 if (totalPallets === 0) setTotalPallets("");
@@ -280,6 +295,7 @@ export default function FormReservation() {
                 {/* Nom fournisseur */}
                 <div className={singleSupplier ? "col-span-12" : "col-span-8"}>
                   <input
+                    maxLength={120}
                     value={supplier.name}
                     onChange={(e) => updateSupplier(supplier.id, "name", e.target.value)}
                     placeholder="Nom du fournisseur"
@@ -296,6 +312,8 @@ export default function FormReservation() {
                     <div className="flex-1 transition-all duration-200 group-hover:flex-[0.8]">
                       <input
                         type="number"
+                        min={1}
+                        step={1}
                         value={supplier.pallets}
                         onChange={(e) =>
                           updateSupplier(supplier.id, "pallets", Number(e.target.value))
@@ -332,6 +350,7 @@ export default function FormReservation() {
               Le total des palettes doit correspondre à la somme des palettes des fournisseurs.
             </p>
           )}
+
 
           {/* Palettes restantes */}
           {suppliers.length > 1 && (
